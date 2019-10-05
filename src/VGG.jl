@@ -20,6 +20,14 @@ function save_model end
 function fit end
 function loss end
 
+function default_array_type()
+    if Knet.gpu() >= 0
+        KnetArray{Float32}
+    else
+        Array{Float32}
+    end
+end
+
 include("vgg16.jl")
 include("vgg19.jl")
 

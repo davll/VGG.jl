@@ -150,19 +150,12 @@ function (nn::VGG19)(x; training=false)
     softmax(x)
 end
 
-function loss(nn::VGG19, x, y)
-end
-
-function load_model(::Type{VGG19})::VGG19
-    if Knet.gpu() >= 0
-        gpu = gpucopy
-    else
-        gpu = identity
-    end
+function load_model(::Type{VGG19}; atype=default_array_type())::VGG19
+    arr(a) = convert(atype, a)
+    fcw(a) = permutedims(a,(2,1,3,4)) |> arr
+    fcb(a) = reshape(a,1,1,:) |> arr
     #
     m = read_vgg19()
-    fcw(a) = permutedims(a,(2,1,3,4)) |> gpu
-    fcb(a) = reshape(a,1,1,:) |> gpu
     @assert m["layers"][ 1]["name"] == "conv1_1"
     conv1_1_w, conv1_1_b = m["layers"][1]["weights"]
     conv1_1_w = conv1_1_w |> fcw

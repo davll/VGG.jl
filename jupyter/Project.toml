@@ -1,0 +1,5 @@
+[deps]
+Images = "916415d5-f1e6-5110-898d-aaa5f9f070e0"
+Knet = "1902f260-5fb4-5aff-8c31-6271790ab950"
+TestImages = "5e47fb64-e119-507b-a336-dd2b206d9990"
+VGG = "2e1e6a21-ea4d-4bc4-a426-5f6a3782a4c2"

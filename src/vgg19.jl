@@ -160,6 +160,8 @@ function Base.iterate(it::VGG19Iterator, state::Tuple{Any, Symbol})
 end
 
 Base.iterate(it::VGG19Iterator, ::Nothing) = nothing
+Base.IteratorSize(it::VGG19Iterator) = Base.HasLength()
+Base.length(it::VGG19Iterator) = 25
 
 function load_model(::Type{VGG19}; atype=default_array_type())::VGG19
     arr(a) = convert(atype, a)

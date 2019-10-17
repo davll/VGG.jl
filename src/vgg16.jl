@@ -36,101 +36,112 @@ struct VGG16
     class_descs
 end
 
-function (nn::VGG16)(x)
-    # check input
-    @assert ndims(x) == 4
-    w, h, d, n = size(x)
-    @assert w == 224
-    @assert h == 224
-    @assert d == 3
-    # feed forward
-    # conv1_1
-    x = conv4(nn.conv1_1_w, x; padding=1, stride=1, mode=0) .+ nn.conv1_1_b
-    x = relu.(x)
-    @assert size(x) == (224,224,64,n)
-    # conv1_2
-    x = conv4(nn.conv1_2_w, x; padding=1, stride=1, mode=0) .+ nn.conv1_2_b
-    x = relu.(x)
-    @assert size(x) == (224,224,64,n)
-    # pool1
-    x = pool(x; window=2, padding=0, stride=2, mode=0)
-    @assert size(x) == (112,112,64,n)
-    # conv2_1
-    x = conv4(nn.conv2_1_w, x; padding=1, stride=1, mode=0) .+ nn.conv2_1_b
-    x = relu.(x)
-    @assert size(x) == (112,112,128,n)
-    # conv2_2
-    x = conv4(nn.conv2_2_w, x; padding=1, stride=1, mode=0) .+ nn.conv2_2_b
-    x = relu.(x)
-    @assert size(x) == (112,112,128,n)
-    # pool2
-    x = pool(x; window=2, padding=0, stride=2, mode=0)
-    @assert size(x) == (56,56,128,n)
-    # conv3_1
-    x = conv4(nn.conv3_1_w, x; padding=1, stride=1, mode=0) .+ nn.conv3_1_b
-    x = relu.(x)
-    @assert size(x) == (56,56,256,n)
-    # conv3_2
-    x = conv4(nn.conv3_2_w, x; padding=1, stride=1, mode=0) .+ nn.conv3_2_b
-    x = relu.(x)
-    @assert size(x) == (56,56,256,n)
-    # conv3_3
-    x = conv4(nn.conv3_3_w, x; padding=1, stride=1, mode=0) .+ nn.conv3_3_b
-    x = relu.(x)
-    @assert size(x) == (56,56,256,n)
-    # pool3
-    x = pool(x; window=2, padding=0, stride=2, mode=0)
-    @assert size(x) == (28,28,256,n)
-    # conv4_1
-    x = conv4(nn.conv4_1_w, x; padding=1, stride=1, mode=0) .+ nn.conv4_1_b
-    x = relu.(x)
-    @assert size(x) == (28,28,512,n)
-    # conv4_2
-    x = conv4(nn.conv4_2_w, x; padding=1, stride=1, mode=0) .+ nn.conv4_2_b
-    x = relu.(x)
-    @assert size(x) == (28,28,512,n)
-    # conv4_3
-    x = conv4(nn.conv4_3_w, x; padding=1, stride=1, mode=0) .+ nn.conv4_3_b
-    x = relu.(x)
-    @assert size(x) == (28,28,512,n)
-    # pool4
-    x = pool(x; window=2, padding=0, stride=2, mode=0)
-    @assert size(x) == (14,14,512,n)
-    # conv5_1
-    x = conv4(nn.conv5_1_w, x; padding=1, stride=1, mode=0) .+ nn.conv5_1_b
-    x = relu.(x)
-    @assert size(x) == (14,14,512,n)
-    # conv5_2
-    x = conv4(nn.conv5_2_w, x; padding=1, stride=1, mode=0) .+ nn.conv5_2_b
-    x = relu.(x)
-    @assert size(x) == (14,14,512,n)
-    # conv5_3
-    x = conv4(nn.conv5_3_w, x; padding=1, stride=1, mode=0) .+ nn.conv5_3_b
-    x = relu.(x)
-    @assert size(x) == (14,14,512,n)
-    # pool5
-    x = pool(x; window=2, padding=0, stride=2, mode=0)
-    @assert size(x) == (7,7,512,n)
-    # fc6
-    x = conv4(nn.fc6_w, x; padding=0, stride=1, mode=0) .+ nn.fc6_b
-    x = relu.(x)
-    @assert size(x) == (1,1,4096,n)
-    # drop6
-    #x = dropout(x, 0.5; drop=training)
-    # fc7
-    x = conv4(nn.fc7_w, x; padding=0, stride=1, mode=0) .+ nn.fc7_b
-    x = relu.(x)
-    @assert size(x) == (1,1,4096,n)
-    # drop7
-    #x = dropout(x, 0.5; drop=training)
-    # fc8
-    x = conv4(nn.fc8_w, x; padding=0, stride=1, mode=0) .+ nn.fc8_b
-    @assert size(x) == (1,1,1000,n)
-    x = reshape(x,:,n)
-    @assert size(x) == (1000,n)
-    # prob
-    softmax(x)
+struct VGG16Iterator
+    nn::VGG16
+    x0
 end
+
+function (nn::VGG16)(x)::VGG16Iterator
+    VGG16Iterator(nn, x)
+end
+
+function Base.iterate(it::VGG16Iterator)
+    Base.iterate(it, (it.x0, :conv1_1))
+end
+
+function Base.iterate(it::VGG16Iterator, state::Tuple{Any, Symbol})
+    # decompose state
+    (x, layer) = state
+    # compute
+    if layer == :conv1_1
+        x = conv4(it.nn.conv1_1_w, x; padding=1, stride=1, mode=0) .+ it.nn.conv1_1_b
+        x = relu.(x)
+        return ((:conv1_1, x), (x, :conv1_2))
+    elseif layer == :conv1_2
+        x = conv4(it.nn.conv1_2_w, x; padding=1, stride=1, mode=0) .+ it.nn.conv1_2_b
+        x = relu.(x)
+        return ((:conv1_2, x), (x, :pool1))
+    elseif layer == :pool1
+        x = pool(x; window=2, padding=0, stride=2, mode=0)
+        return ((:pool1, x), (x, :conv2_1))
+    elseif layer == :conv2_1
+        x = conv4(it.nn.conv2_1_w, x; padding=1, stride=1, mode=0) .+ it.nn.conv2_1_b
+        x = relu.(x)
+        return ((:conv2_1, x), (x, :conv2_2))
+    elseif layer == :conv2_2
+        x = conv4(it.nn.conv2_2_w, x; padding=1, stride=1, mode=0) .+ it.nn.conv2_2_b
+        x = relu.(x)
+        return ((:conv2_2, x), (x, :pool2))
+    elseif layer == :pool2
+        x = pool(x; window=2, padding=0, stride=2, mode=0)
+        return ((:pool2, x), (x, :conv3_1))
+    elseif layer == :conv3_1
+        x = conv4(it.nn.conv3_1_w, x; padding=1, stride=1, mode=0) .+ it.nn.conv3_1_b
+        x = relu.(x)
+        return ((:conv3_1, x), (x, :conv3_2))
+    elseif layer == :conv3_2
+        x = conv4(it.nn.conv3_2_w, x; padding=1, stride=1, mode=0) .+ it.nn.conv3_2_b
+        x = relu.(x)
+        return ((:conv3_2, x), (x, :conv3_3))
+    elseif layer == :conv3_3
+        x = conv4(it.nn.conv3_3_w, x; padding=1, stride=1, mode=0) .+ it.nn.conv3_3_b
+        x = relu.(x)
+        return ((:conv3_3, x), (x, :pool3))
+    elseif layer == :pool3
+        x = pool(x; window=2, padding=0, stride=2, mode=0)
+        return ((:pool3, x), (x, :conv4_1))
+    elseif layer == :conv4_1
+        x = conv4(it.nn.conv4_1_w, x; padding=1, stride=1, mode=0) .+ it.nn.conv4_1_b
+        x = relu.(x)
+        return ((:conv4_1, x), (x, :conv4_2))
+    elseif layer == :conv4_2
+        x = conv4(it.nn.conv4_2_w, x; padding=1, stride=1, mode=0) .+ it.nn.conv4_2_b
+        x = relu.(x)
+        return ((:conv4_2, x), (x, :conv4_3))
+    elseif layer == :conv4_3
+        x = conv4(it.nn.conv4_3_w, x; padding=1, stride=1, mode=0) .+ it.nn.conv4_3_b
+        x = relu.(x)
+        return ((:conv4_3, x), (x, :pool4))
+    elseif layer == :pool4
+        x = pool(x; window=2, padding=0, stride=2, mode=0)
+        return ((:pool4, x), (x, :conv5_1))
+    elseif layer == :conv5_1
+        x = conv4(it.nn.conv5_1_w, x; padding=1, stride=1, mode=0) .+ it.nn.conv5_1_b
+        x = relu.(x)
+        return ((:conv5_1, x), (x, :conv5_2))
+    elseif layer == :conv5_2
+        x = conv4(it.nn.conv5_2_w, x; padding=1, stride=1, mode=0) .+ it.nn.conv5_2_b
+        x = relu.(x)
+        return ((:conv5_2, x), (x, :conv5_3))
+    elseif layer == :conv5_3
+        x = conv4(it.nn.conv5_3_w, x; padding=1, stride=1, mode=0) .+ it.nn.conv5_3_b
+        x = relu.(x)
+        return ((:conv5_3, x), (x, :pool5))
+    elseif layer == :pool5
+        x = pool(x; window=2, padding=0, stride=2, mode=0)
+        return ((:pool5, x), (x, :fc6))
+    elseif layer == :fc6
+        x = conv4(it.nn.fc6_w, x; padding=0, stride=1, mode=0) .+ it.nn.fc6_b
+        x = relu.(x)
+        return ((:fc6, x), (x, :fc7))
+    elseif layer == :fc7
+        x = conv4(it.nn.fc7_w, x; padding=0, stride=1, mode=0) .+ it.nn.fc7_b
+        x = relu.(x)
+        return ((:fc7, x), (x, :fc8))
+    elseif layer == :fc8
+        n = size(it.x0, 4)
+        x = conv4(it.nn.fc8_w, x; padding=0, stride=1, mode=0) .+ it.nn.fc8_b
+        x = reshape(x,:,n)
+        return ((:fc8, x), (x, :prob))
+    elseif layer == :prob
+        x = softmax(x)
+        return ((:prob, x), nothing)
+    else
+        throw(InvalidStateException("Invalid Layer", layer))
+    end
+end
+
+Base.iterate(it::VGG16Iterator, ::Nothing) = nothing
 
 function load_model(::Type{VGG16}; atype=default_array_type())::VGG16
     arr(a) = convert(atype, a)
